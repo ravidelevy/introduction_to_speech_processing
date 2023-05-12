@@ -60,15 +60,15 @@ class MusicClassifier:
         - You should use `opt_params` for your optimization and you are welcome to experiment
         """
         weight_scale = kwargs['weight_scale'] if 'weight_scale' in kwargs.keys() else 0.001
-        input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 266112
+        input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 520
         weights = kwargs['weights'] if 'weights' in kwargs.keys() else None
         biases = kwargs['biases'] if 'biases' in kwargs.keys() else None
         sample_rate = kwargs['biases'] if 'biases' in kwargs.keys() else 22050
 
         self.opt_params = opt_params
         self.sample_rate = sample_rate
-        self.weights = weight_scale * torch.rand(input_dim, len(Genre)) if weights is None else weights
-        self.biases = torch.zeros(len(Genre)) if biases is None else biases
+        self.weights = weight_scale * np.random.randn(input_dim, len(Genre)) if weights is None else weights
+        self.biases = np.zeros(len(Genre)) if biases is None else biases
 
     
     def exctract_feats(self, wavs: torch.Tensor):
@@ -80,7 +80,7 @@ class MusicClassifier:
         for wav in wavs:
             mfcc = librosa.feature.mfcc(y=np.array(wav), sr=self.sample_rate, n_mfcc=40)
             mean_matrix = mfcc.mean(0)
-            features.append([mean_matrix])
+            features.append(mean_matrix)
         
         return torch.tensor(np.array(features))
 
@@ -89,7 +89,7 @@ class MusicClassifier:
         this function performs a forward pass throuh the model, outputting scores for every class.
         feats: batch of extracted faetures
         """
-        raise NotImplementedError("optional, function is not implemented")
+        return feats.numpy().dot(self.weights) + self.biases
     
     def backward(self, feats: torch.Tensor, output_scores: torch.Tensor, labels: torch.Tensor):
         """
@@ -116,7 +116,7 @@ class MusicClassifier:
         this method should recieve a torch.Tensor of shape [batch, channels, time] (float tensor) 
         and a output batch of corresponding labels [B, 1] (integer tensor)
         """
-        raise NotImplementedError("function is not implemented")
+        return np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases, axis=1)
     
 
 class ClassifierHandler:
@@ -131,13 +131,12 @@ class ClassifierHandler:
         with open(training_parameters.train_json_path) as train_json:
             train = json.load(train_json)
         
-        input_dim = len(sf.read(train[0]['path'])[0])
         sample_rate = sf.read(train[0]['path'])[1]
+        mfcc = librosa.feature.mfcc(y=np.array(sf.read(train[0]['path'])[0]), sr=sample_rate, n_mfcc=40)
         music_classifier = MusicClassifier(opt_params=OptimizationParameters(),
-                                           input_dim=input_dim,
+                                           input_dim=mfcc.mean(0).size,
                                            sample_rate=sample_rate,
                                            weight_scale=training_parameters.weight_scale)
-        
         random.shuffle(train)
         for epoch in range(training_parameters.num_epochs):    
             for i in range(0, len(train), training_parameters.batch_size):
@@ -145,10 +144,9 @@ class ClassifierHandler:
                 wavs = [sf.read(sample['path'])[0] for sample in batch]
                 X_train = music_classifier.exctract_feats(torch.tensor(np.array(wavs)))
                 y_train = [Genre[sample['label'].upper().replace('-', '_')] for sample in batch]
+                scores = music_classifier.forward(X_train)
+                music_classifier.backward(X_train, scores, y_train)
 
-                print(X_train)
-
-                
         return music_classifier
 
 
