@@ -3,6 +3,9 @@ import torch
 from enum import Enum
 import typing as tp
 from dataclasses import dataclass
+import json
+import random
+import soundfile as sf
 
 
 class Genre(Enum):
@@ -29,6 +32,7 @@ class TrainingParameters:
     train_json_path: str = "jsons/train.json" # you should use this file path to load your train data
     test_json_path: str = "jsons/test.json" # you should use this file path to load your test data
     # other training hyper parameters
+    weight_scale: int = 0.001
 
 
 @dataclass
@@ -52,7 +56,15 @@ class MusicClassifier:
         - You could use kwargs (dictionary) for any other variables you wish to pass in here.
         - You should use `opt_params` for your optimization and you are welcome to experiment
         """
-        raise NotImplementedError("function is not implemented")
+        weight_scale = kwargs['weight_scale'] if 'weight_scale' in kwargs.keys() else 0.001
+        input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 266112
+        weights = kwargs['weights'] if 'weights' in kwargs.keys() else None
+        biases = kwargs['biases'] if 'biases' in kwargs.keys() else None
+
+        self.opt_params = opt_params
+        self.weights = weight_scale * torch.rand(input_dim, len(Genre)) if weights is None else weights
+        self.biases = torch.zeros(len(Genre)) if biases is None else biases
+
     
     def exctract_feats(self, wavs: torch.Tensor):
         """
@@ -86,7 +98,7 @@ class MusicClassifier:
         This function returns the weights and biases associated with this model object, 
         should return a tuple: (weights, biases)
         """
-        raise NotImplementedError("function is not implemented")
+        return (self.weights, self.biases)
     
     def classify(self, wavs: torch.Tensor) -> torch.Tensor:
         """
@@ -104,7 +116,20 @@ class ClassifierHandler:
         This function should create a new 'MusicClassifier' object and train it from scratch.
         You could program your training loop / training manager as you see fit.
         """
-        raise NotImplementedError("function is not implemented")
+        train, test = None, None       
+        with open(training_parameters.train_json_path) as train_json:
+            train = json.load(train_json)
+        with open(training_parameters.test_json_path) as test_json:
+            test = json.load(test_json)
+        
+        random.shuffle(train)
+        random.shuffle(test)
+        input_dim = len(sf.read(train[0]['path'])[0])
+        music_classifier = MusicClassifier(opt_params=OptimizationParameters(),
+                                           input_dim=input_dim,
+                                           weight_scale=training_parameters.weight_scale)
+        return music_classifier
+
 
     @staticmethod
     def get_pretrained_model() -> MusicClassifier:
@@ -112,6 +137,10 @@ class ClassifierHandler:
         This function should construct a 'MusicClassifier' object, load it's trained weights / 
         hyperparameters and return the loaded model
         """
-        raise NotImplementedError("function is not implemented")
-    
+        weights, biases = None, None
+        # TODO: load weights and biases
+
+        music_classifier = MusicClassifier(OptimizationParameters(),
+                                           weights=weights, biases=biases)
+        return music_classifier
     
