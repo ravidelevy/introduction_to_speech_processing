@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import itertools
 import torch
 from enum import Enum
 import typing as tp
@@ -6,7 +7,8 @@ from dataclasses import dataclass
 import json
 import random
 import soundfile as sf
-
+import librosa
+import numpy as np
 
 class Genre(Enum):
     """
@@ -33,6 +35,7 @@ class TrainingParameters:
     test_json_path: str = "jsons/test.json" # you should use this file path to load your test data
     # other training hyper parameters
     weight_scale: int = 0.001
+    sample_rate: int = 22050
 
 
 @dataclass
@@ -60,8 +63,10 @@ class MusicClassifier:
         input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 266112
         weights = kwargs['weights'] if 'weights' in kwargs.keys() else None
         biases = kwargs['biases'] if 'biases' in kwargs.keys() else None
+        sample_rate = kwargs['biases'] if 'biases' in kwargs.keys() else 22050
 
         self.opt_params = opt_params
+        self.sample_rate = sample_rate
         self.weights = weight_scale * torch.rand(input_dim, len(Genre)) if weights is None else weights
         self.biases = torch.zeros(len(Genre)) if biases is None else biases
 
@@ -71,7 +76,13 @@ class MusicClassifier:
         this function extract features from a given audio.
         we will not be observing this method.
         """
-        raise NotImplementedError("optional, function is not implemented")
+        features = []
+        for wav in wavs:
+            mfcc = librosa.feature.mfcc(y=np.array(wav), sr=self.sample_rate, n_mfcc=40)
+            mean_matrix = mfcc.mean(0)
+            features.append([mean_matrix])
+        
+        return torch.tensor(np.array(features))
 
     def forward(self, feats: torch.Tensor) -> tp.Any:
         """
@@ -119,15 +130,25 @@ class ClassifierHandler:
         train, test = None, None       
         with open(training_parameters.train_json_path) as train_json:
             train = json.load(train_json)
-        with open(training_parameters.test_json_path) as test_json:
-            test = json.load(test_json)
         
-        random.shuffle(train)
-        random.shuffle(test)
         input_dim = len(sf.read(train[0]['path'])[0])
+        sample_rate = sf.read(train[0]['path'])[1]
         music_classifier = MusicClassifier(opt_params=OptimizationParameters(),
                                            input_dim=input_dim,
+                                           sample_rate=sample_rate,
                                            weight_scale=training_parameters.weight_scale)
+        
+        random.shuffle(train)
+        for epoch in range(training_parameters.num_epochs):    
+            for i in range(0, len(train), training_parameters.batch_size):
+                batch = train[i:i+training_parameters.batch_size]
+                wavs = [sf.read(sample['path'])[0] for sample in batch]
+                X_train = music_classifier.exctract_feats(torch.tensor(np.array(wavs)))
+                y_train = [Genre[sample['label'].upper().replace('-', '_')] for sample in batch]
+
+                print(X_train)
+
+                
         return music_classifier
 
 

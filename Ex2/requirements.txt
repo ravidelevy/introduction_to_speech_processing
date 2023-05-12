@@ -2,3 +2,4 @@ torch
 torchaudio
 soundfile
 numpy
+librosa
