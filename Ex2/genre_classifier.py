@@ -45,7 +45,7 @@ class OptimizationParameters:
     This dataclass defines optimization related hyperparameters to be passed to the model.
     feel free to add/change it as you see fit.
     """
-    learning_rate: float = 0.00001
+    learning_rate: float = 0.00005
     regulariatzion: float = 0.1
 
 
