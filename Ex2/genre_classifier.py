@@ -45,7 +45,7 @@ class OptimizationParameters:
     This dataclass defines optimization related hyperparameters to be passed to the model.
     feel free to add/change it as you see fit.
     """
-    learning_rate: float = 0.001
+    learning_rate: float = 0.0001
     regulariatzion: float = 0.00001
 
 
@@ -62,14 +62,14 @@ class MusicClassifier:
         - You should use `opt_params` for your optimization, and you are welcome to experiment
         """
         weight_scale = kwargs['weight_scale'] if 'weight_scale' in kwargs.keys() else 0.001
-        input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 520
+        input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 40
         weights = kwargs['weights'] if 'weights' in kwargs.keys() else None
         biases = kwargs['biases'] if 'biases' in kwargs.keys() else None
         sample_rate = kwargs['biases'] if 'biases' in kwargs.keys() else 22050
 
         self.opt_params = opt_params
         self.sample_rate = sample_rate
-        self.weights = weight_scale * np.random.randn(40, len(Genre)) if weights is None else weights
+        self.weights = weight_scale * np.random.randn(input_dim, len(Genre)) if weights is None else weights
         self.biases = np.zeros(len(Genre)) if biases is None else biases
 
     def exctract_feats(self, wavs: torch.Tensor):
@@ -90,7 +90,6 @@ class MusicClassifier:
         this function performs a forward pass throuh the model, outputting scores for every class.
         feats: batch of extracted faetures
         """
-        print(feats.shape)
         return feats.numpy().dot(self.weights) + self.biases
 
     def backward(self, feats: torch.Tensor, output_scores: torch.Tensor, labels: torch.Tensor):
@@ -169,6 +168,8 @@ class ClassifierHandler:
 
             loss /= int(len(train) / training_parameters.batch_size)
             print(f'epoch: {epoch + 1}/{training_parameters.num_epochs}, loss: {loss}')
+        
+        # TODO: save weights and biases
 
         return music_classifier
 
