@@ -35,7 +35,7 @@ class TrainingParameters:
     train_json_path: str = "jsons/train.json"  # you should use this file path to load your train data
     test_json_path: str = "jsons/test.json"  # you should use this file path to load your test data
     # other training hyperparameters
-    weight_scale: int = 0.001
+    weight_scale: int = 0.01
     sample_rate: int = 22050
 
 
@@ -45,8 +45,8 @@ class OptimizationParameters:
     This dataclass defines optimization related hyperparameters to be passed to the model.
     feel free to add/change it as you see fit.
     """
-    learning_rate: float = 0.0001
-    regulariatzion: float = 0.00001
+    learning_rate: float = 0.00001
+    regulariatzion: float = 0.1
 
 
 class MusicClassifier:
