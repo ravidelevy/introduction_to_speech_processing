@@ -45,6 +45,7 @@ class OptimizationParameters:
     feel free to add/change it as you see fit.
     """
     learning_rate: float = 0.001
+    regulariatzion : float = 0.00001
 
 
 class MusicClassifier:
@@ -102,7 +103,23 @@ class MusicClassifier:
         We thought it may result in less coding needed if you are to apply it here, hence 
         OptimizationParameters are passed to the initialization function
         """
-        raise NotImplementedError("optional, function is not implemented")
+        # Hinge loss
+        y_train = labels.numpy()
+        correct_scores = output_scores.numpy()[range(output_scores.shape[0]), y_train]
+        margines = np.maximum(output_scores.T - correct_scores + 1, 0).numpy().T
+        margines[range(margines.shape[0]), y_train] = 0
+        loss = np.sum(margines[margines > 0]) / feats.shape[0] +\
+              self.opt_params.regulariatzion * np.sum(np.square(self.weights)) / 2 
+
+        gradient = np.zeros(margines.shape)
+        gradient[margines > 0] = 1
+        gradient[range(gradient.shape[0]), y_train] = -np.sum(gradient, axis=1)
+
+        self.weights -= self.opt_params.learning_rate * (feats.numpy().T.dot(gradient) / feats.shape[0] +\
+                                                         np.sum(self.weights))
+        self.biases -= self.opt_params.learning_rate * gradient.sum(axis=0)
+
+        return loss
 
     def get_weights_and_biases(self):
         """
@@ -116,7 +133,7 @@ class MusicClassifier:
         this method should recieve a torch.Tensor of shape [batch, channels, time] (float tensor) 
         and a output batch of corresponding labels [B, 1] (integer tensor)
         """
-        return np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases, axis=1)
+        return torch.tensor(np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases, axis=1))
     
 
 class ClassifierHandler:
@@ -127,7 +144,7 @@ class ClassifierHandler:
         This function should create a new 'MusicClassifier' object and train it from scratch.
         You could program your training loop / training manager as you see fit.
         """
-        train, test = None, None       
+        train = None, None       
         with open(training_parameters.train_json_path) as train_json:
             train = json.load(train_json)
         
@@ -138,14 +155,19 @@ class ClassifierHandler:
                                            sample_rate=sample_rate,
                                            weight_scale=training_parameters.weight_scale)
         random.shuffle(train)
-        for epoch in range(training_parameters.num_epochs):    
+        for epoch in range(training_parameters.num_epochs):
+            loss = 0
             for i in range(0, len(train), training_parameters.batch_size):
                 batch = train[i:i+training_parameters.batch_size]
                 wavs = [sf.read(sample['path'])[0] for sample in batch]
                 X_train = music_classifier.exctract_feats(torch.tensor(np.array(wavs)))
-                y_train = [Genre[sample['label'].upper().replace('-', '_')] for sample in batch]
+                labels = [Genre[sample['label'].upper().replace('-', '_')] for sample in batch]
+                y_train = [label.value for label in labels]
                 scores = music_classifier.forward(X_train)
-                music_classifier.backward(X_train, scores, y_train)
+                loss += music_classifier.backward(X_train, torch.tensor(scores), torch.tensor(y_train))
+
+            loss /= int(len(train)/training_parameters.batch_size)
+            print(f'epoch: {epoch+1}/{training_parameters.num_epochs}, loss: {loss}')
 
         return music_classifier
 
