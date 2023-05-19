@@ -12,11 +12,10 @@ if __name__ == "__main__":
         print("Train dummy test passed")
     except Exception as e:
         print(f"Train dummy test failed, exception:\n{e}")
-    
-    test = None
+
     with open(training_params.test_json_path) as test_json:
         test = json.load(test_json)
-    
+
     wavs = [sf.read(sample['path'])[0] for sample in test]
     labels = [Genre[sample['label'].upper().replace('-', '_')] for sample in test]
     y_pred = music_classifier.classify(torch.tensor(np.array(wavs)))
@@ -25,7 +24,6 @@ if __name__ == "__main__":
     correct = (y_pred == y_test).float().sum()
     accuracy = 100 * correct / len(test)
     print("Accuracy = {}".format(accuracy))
-
 
     # check that model object is obtained
     try:
@@ -37,5 +35,3 @@ if __name__ == "__main__":
     # feel free to add tests here. 
     # We will not be giving score to submitted tests.
     # You may (and recommended to) share tests with one another.
-
-    
