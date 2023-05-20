@@ -66,13 +66,12 @@ class MusicClassifier:
         input_dim = kwargs['input_dim'] if 'input_dim' in kwargs.keys() else 40
         weights = kwargs['weights'] if 'weights' in kwargs.keys() else None
         biases = kwargs['biases'] if 'biases' in kwargs.keys() else None
-        sample_rate = kwargs['biases'] if 'biases' in kwargs.keys() else 22050
+        sample_rate = kwargs['sample_rate'] if 'sample_rate' in kwargs.keys() else 22050
 
         self.opt_params = opt_params
         self.sample_rate = sample_rate
         self.weights = weight_scale * np.random.randn(input_dim, len(Genre)) if weights is None else weights
         self.biases = np.zeros(len(Genre)) if biases is None else biases
-        self.ckpt_file_name = 'checkpoints.pkl'
 
     def exctract_feats(self, wavs: torch.Tensor):
         """
@@ -140,6 +139,8 @@ class MusicClassifier:
 
 class ClassifierHandler:
 
+    checkpoint_file_path = 'model_files\\checkpoints.pkl'
+
     @staticmethod
     def train_new_model(training_parameters: TrainingParameters) -> MusicClassifier:
         """
@@ -171,10 +172,10 @@ class ClassifierHandler:
             loss /= int(len(train) / training_parameters.batch_size)
             print(f'epoch: {epoch + 1}/{training_parameters.num_epochs}, loss: {loss}')
         
-        # TODO: save weights and biases
-
-        ckpt_dict = {'weights': music_classifier.weights, 'biases': music_classifier.biases}
-        with open(music_classifier.ckpt_file_name, 'wb') as fp:
+        # Write dictionary pkl file
+        weights, biases = music_classifier.get_weights_and_biases()
+        ckpt_dict = {'weights': weights, 'biases': biases}
+        with open(ClassifierHandler.checkpoint_file_path, 'wb') as fp:
             pickle.dump(ckpt_dict, fp)
 
         return music_classifier
@@ -186,11 +187,12 @@ class ClassifierHandler:
         hyperparameters and return the loaded model
         """
         weights, biases = None, None
-        music_classifier = MusicClassifier(OptimizationParameters())
+        music_classifier = None
         # Read dictionary pkl file
-        with open(music_classifier.ckpt_file_name, 'rb') as fp:
+        with open(ClassifierHandler.checkpoint_file_path, 'rb') as fp:
             ckpt = pickle.load(fp)
             weights, biases = ckpt['weights'], ckpt['biases']
-            music_classifier.weights, music_classifier.biases = weights, biases
+            music_classifier = MusicClassifier(OptimizationParameters(),
+                                               weights=weights, biases=biases)
 
         return music_classifier
