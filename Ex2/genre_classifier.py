@@ -9,6 +9,7 @@ import random
 import soundfile as sf
 import librosa
 import numpy as np
+import pickle
 
 
 class Genre(Enum):
@@ -71,6 +72,7 @@ class MusicClassifier:
         self.sample_rate = sample_rate
         self.weights = weight_scale * np.random.randn(input_dim, len(Genre)) if weights is None else weights
         self.biases = np.zeros(len(Genre)) if biases is None else biases
+        self.ckpt_file_name = 'checkpoints.pkl'
 
     def exctract_feats(self, wavs: torch.Tensor):
         """
@@ -100,7 +102,7 @@ class MusicClassifier:
         - update gradients using SGD
 
         Note: in practice - the optimization process is usually external to the model.
-        We thought it may result in less coding needed if you are to apply it here, hence 
+        We thought it may result in less coding needed if you are to apply it here, hence
         OptimizationParameters are passed to the initialization function
         """
         # Hinge loss
@@ -123,14 +125,14 @@ class MusicClassifier:
 
     def get_weights_and_biases(self):
         """
-        This function returns the weights and biases associated with this model object, 
+        This function returns the weights and biases associated with this model object,
         should return a tuple: (weights, biases)
         """
         return self.weights, self.biases
 
     def classify(self, wavs: torch.Tensor) -> torch.Tensor:
         """
-        this method should recieve a torch.Tensor of shape [batch, channels, time] (float tensor) 
+        this method should recieve a torch.Tensor of shape [batch, channels, time] (float tensor)
         and a output batch of corresponding labels [B, 1] (integer tensor)
         """
         return torch.tensor(np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases, axis=1))
@@ -144,7 +146,7 @@ class ClassifierHandler:
         This function should create a new 'MusicClassifier' object and train it from scratch.
         You could program your training loop / training manager as you see fit.
         """
-        train = None, None
+        train = None
         with open(training_parameters.train_json_path) as train_json:
             train = json.load(train_json)
 
@@ -171,17 +173,24 @@ class ClassifierHandler:
         
         # TODO: save weights and biases
 
+        ckpt_dict = {'weights': music_classifier.weights, 'biases': music_classifier.biases}
+        with open(music_classifier.ckpt_file_name, 'wb') as fp:
+            pickle.dump(ckpt_dict, fp)
+
         return music_classifier
 
     @staticmethod
     def get_pretrained_model() -> MusicClassifier:
         """
-        This function should construct a 'MusicClassifier' object, load it's trained weights / 
+        This function should construct a 'MusicClassifier' object, load it's trained weights /
         hyperparameters and return the loaded model
         """
         weights, biases = None, None
-        # TODO: load weights and biases
+        music_classifier = MusicClassifier(OptimizationParameters())
+        # Read dictionary pkl file
+        with open(music_classifier.ckpt_file_name, 'rb') as fp:
+            ckpt = pickle.load(fp)
+            weights, biases = ckpt['weights'], ckpt['biases']
+            music_classifier.weights, music_classifier.biases = weights, biases
 
-        music_classifier = MusicClassifier(OptimizationParameters(),
-                                           weights=weights, biases=biases)
         return music_classifier
