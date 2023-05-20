@@ -20,7 +20,7 @@ if __name__ == "__main__":
     wavs = [sf.read(sample['path'])[0] for sample in test]
     labels = [Genre[sample['label'].upper().replace('-', '_')] for sample in test]
     y_pred = music_classifier.classify(torch.tensor(np.array(wavs)))
-    y_test = torch.tensor([label.value for label in labels])
+    y_test = torch.tensor([[label.value] for label in labels])
 
     correct = (y_pred == y_test).float().sum()
     accuracy = 100 * correct / len(test)
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # We will not be giving score to submitted tests.
     # You may (and recommended to) share tests with one another.
     y_pred = music_classifier.classify(torch.tensor(np.array(wavs)))
-    y_test = torch.tensor([label.value for label in labels])
+    y_test = torch.tensor([[label.value] for label in labels])
 
     correct = (y_pred == y_test).float().sum()
     accuracy = 100 * correct / len(test)

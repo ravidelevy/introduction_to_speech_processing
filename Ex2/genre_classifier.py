@@ -134,7 +134,10 @@ class MusicClassifier:
         this method should recieve a torch.Tensor of shape [batch, channels, time] (float tensor)
         and a output batch of corresponding labels [B, 1] (integer tensor)
         """
-        return torch.tensor(np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases, axis=1))
+        classification = torch.tensor(np.argmax(self.exctract_feats(wavs).numpy().dot(self.weights) + self.biases,
+                                                axis=1))
+        classification = classification.reshape(classification.size()[0], 1)
+        return classification
 
 
 class ClassifierHandler:
