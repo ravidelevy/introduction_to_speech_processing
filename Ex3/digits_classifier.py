@@ -2,7 +2,9 @@ from abc import abstractmethod
 import torch
 import typing as tp
 from dataclasses import dataclass
-
+import librosa
+import pickle
+import os
 
 
 @dataclass
@@ -19,6 +21,8 @@ class ClassifierArgs:
     path_to_training_data_dir: str = "./train_files" 
     
     # you may add other args here
+    path_to_model_object: str = "./model.pkl"
+    digits: list[str] = ['one', 'two', 'three', 'four', 'five']
 
 
 class DigitClassifier():
@@ -27,6 +31,70 @@ class DigitClassifier():
     """
     def __init__(self, args: ClassifierArgs):
         self.path_to_training_data = args.path_to_training_data_dir
+        self.path_to_model_object = args.path_to_model_object
+        self.digits = args.digits
+
+        self.features = None
+        if os.path.exists(self.path_to_model_object):
+            with open(self.path_to_training_data, 'rb') as fp:
+                self.features = pickle.load(fp)
+        else:
+            self.features = self.compute_model_features()
+            with open(self.path_to_model_object, 'wb') as fp:
+                pickle.dump(self.features, fp)
+    
+    def compute_model_features(self) -> torch.Tensor:
+        features = [] * len(self.digits)
+        for digit in len(self.digits):
+            directory = f'{self.path_to_training_data}/{self.digits[digit]}'
+            audio_files = os.listdir(directory)
+            audio, sr = librosa.load(f'{directory}/{audio_files[0]}', sr=None)
+            mfcc = librosa.feature.mfcc(y=audio, sr=sr)
+            features_average = torch.zeros_like(mfcc.mean(0))
+            for file in audio_files:
+                audio, sr = librosa.load(f'{directory}/{file}', sr=None)
+                mfcc = librosa.feature.mfcc(y=audio, sr=sr)
+                features_average += mfcc.mean(0)
+            
+            features_average /= len(audio_files)
+            features[digit] = features_average
+        
+        return torch.tensor(features)
+
+    def extract_features(self, audio_files: tp.Union[tp.List[str], torch.Tensor]) -> torch.Tensor:
+        audio_features = []
+        try:
+            for path in audio_files:
+                audio, sr = librosa.load(path, sr=None)
+                mfcc = librosa.feature.mfcc(y=audio, sr=sr)
+                audio_features.append(mfcc.mean(0))
+        except Exception as e:
+            return audio_files
+        
+        return torch.cat(audio_features, dim=0)
+
+    def compute_distances(self, audio_features, digit) -> torch.Tensor:
+        length = audio_features.size()[1]
+        digit_fetaures = self.features[digit]
+
+        distances = [[] * length] * length
+        for i in range(length):
+            for j in range(distances):
+                distances[i][j] = (audio_features[i] - digit_fetaures[j]) ** 2
+        
+        for i in range(1, length):
+            distances[i][0] += distances[i - 1][0]
+
+        for j in range(1, length):
+            distances[0][j] += distances[0][j - 1]
+
+        for i in range(1, length):
+            for j in range(1, length):
+                distances[i][j] += (min(distances[i - 1][j - 1],
+                                    min(distances[i - 1][j],
+                                        distances[i][j - 1])))
+        
+        return distances[length - 1][length - 1]
 
     @abstractmethod
     def classify_using_eucledian_distance(self, audio_files: tp.Union[tp.List[str], torch.Tensor]) -> tp.List[int]:
@@ -35,7 +103,17 @@ class DigitClassifier():
         audio_files: list of audio file paths or a a batch of audio files of shape [Batch, Channels, Time]
         return: list of predicted label for each batch entry
         """
-        raise NotImplementedError("function is not implemented")
+        audio_features = self.extract_features(audio_files)
+        labels = []
+        for i in range(audio_features.size()[0]):
+            features_distances = []
+            for digit in len(self.digits):
+                features_distances[digit] =\
+                    torch.sqrt(self.sum(torch.pow(self.features[digit] - audio_features[i], 2)))
+            
+            labels.append(torch.argmin(torch.tensor(features_distances)) + 1)
+        
+        return labels
     
     @abstractmethod
     def classify_using_DTW_distance(self, audio_files: tp.Union[tp.List[str], torch.Tensor]) -> tp.List[int]:
@@ -44,18 +122,34 @@ class DigitClassifier():
         audio_files: list of audio file paths or a a batch of audio files of shape [Batch, Channels, Time]
         return: list of predicted label for each batch entry
         """
-        raise NotImplementedError("function is not implemented")
+        audio_features = self.extract_features(audio_files)
+        labels = []
+        for i in range(audio_features.size()[0]):
+            features_distances = []
+            for digit in len(self.digits):
+                features_distances[digit] = self.compute_dtw(audio_features[i], digit)
+            
+            labels.append(torch.argmin(torch.tensor(features_distances)) + 1)
 
+        return labels
 
     @abstractmethod
     def classify(self, audio_files: tp.List[str]) -> tp.List[str]:
         """
-        function to classify a given audio using auclidean distance
+        function to classify a given audio using euclidean distance
         audio_files: list of ABSOLUTE audio file paths
         return: a list of strings of the following format: '{filename} - {predict using euclidean distance} - {predict using DTW distance}'
         Note: filename should not include parent path, but only the file name itself.
         """
-        raise NotImplementedError("function is not implemented")
+        euclidean_labels = self.classify_using_eucledian_distance(audio_files)
+        dtw_labels = self.classify_using_eucledian_distance(audio_files)
+
+        labeled_filenames = []
+        for i in len(audio_files):
+            filename = os.path.basename(os.path.normpath(audio_files[i]))
+            labeled_filenames.append(f'{filename}-{euclidean_labels[i]}-{dtw_labels[i]}')
+        
+        return labeled_filenames
     
 
 class ClassifierHandler:
@@ -66,4 +160,6 @@ class ClassifierHandler:
         This function should load a pretrained / tuned 'DigitClassifier' object.
         We will use this object to evaluate your classifications
         """
-        raise NotImplementedError("function is not implemented")
+        classifier_args = ClassifierArgs()
+        return DigitClassifier(classifier_args)
+
