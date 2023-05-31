@@ -49,11 +49,11 @@ class DigitClassifier():
             audio_files = [f for f in os.listdir(directory) if not f.startswith('.')]
             audio, sr = librosa.load(f'{directory}/{audio_files[0]}', sr=None)
             mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-            features_average = torch.zeros_like(torch.tensor(mfcc.mean(0)))
+            features_average = torch.zeros_like(torch.tensor(mfcc.mean(1)))
             for file in audio_files:
                 audio, sr = librosa.load(f'{directory}/{file}', sr=None)
                 mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-                features_average += mfcc.mean(0)
+                features_average += mfcc.mean(1)
             
             features_average /= len(audio_files)
             features[digit] = features_average
@@ -66,7 +66,7 @@ class DigitClassifier():
             for path in audio_files:
                 audio, sr = librosa.load(path, sr=None)
                 mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-                audio_features.append(torch.tensor(mfcc.mean(0)))
+                audio_features.append(torch.tensor(mfcc.mean(1)))
         except Exception as e:
             return audio_files
         
