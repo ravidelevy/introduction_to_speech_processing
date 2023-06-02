@@ -82,7 +82,8 @@ class DigitClassifier():
         for i in range(length):
             distances_per_frame = []
             for j in range(length):
-                distances_per_frame.append(((train_features[i] - test_features[j]) ** 2).sum().sqrt())
+                #distances_per_frame.append(((train_features[i] - test_features[j]) ** 2).sum().sqrt())
+                distances_per_frame.append((train_features[i] - test_features[j]).abs().sum())
             
             distances.append(distances_per_frame)
         
