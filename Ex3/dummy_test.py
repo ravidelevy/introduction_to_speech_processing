@@ -17,7 +17,3 @@ if __name__ == "__main__":
     similar = (euclidean_predictions == dtw_predictions).float().sum()
     similarity = 100 * similar / len(classified_files)
     print("Similarity = {}".format(similarity))
-
-    with open('output.txt', 'w+') as fp:
-        for file in classified_files:
-            fp.write(f'{file}\n')

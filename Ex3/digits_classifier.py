@@ -164,6 +164,10 @@ class DigitClassifier():
             filename = os.path.basename(os.path.normpath(audio_files[i]))
             labeled_filenames.append(f'{filename}-{euclidean_labels[i]}-{dtw_labels[i]}')
         
+        with open('output.txt', 'w+') as fp:
+            for file in labeled_filenames:
+                fp.write(f'{file}\n')
+        
         return labeled_filenames
     
 
