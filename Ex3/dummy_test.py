@@ -15,6 +15,9 @@ if __name__ == "__main__":
     dtw_predictions = torch.tensor([int(prediction.split('-')[-1]) for prediction in classified_files])
     
     similar = (euclidean_predictions == dtw_predictions).float().sum()
-    similarity = 100 * similar / len(test_files)
+    similarity = 100 * similar / len(classified_files)
     print("Similarity = {}".format(similarity))
 
+    with open('output.txt', 'w+') as fp:
+        for file in classified_files:
+            fp.write(f'{file}\n')

@@ -43,20 +43,17 @@ class DigitClassifier():
                 pickle.dump(self.features, fp)
     
     def compute_model_features(self) -> torch.Tensor:
-        features = [0] * len(self.digits)
+        features = []
         for digit in range(len(self.digits)):
             directory = f'{self.path_to_training_data}/{self.digits[digit]}'
             audio_files = [f for f in os.listdir(directory) if not f.startswith('.')]
-            audio, sr = librosa.load(f'{directory}/{audio_files[0]}', sr=None)
-            mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-            features_average = torch.zeros_like(torch.tensor(mfcc.mean(1)))
+            digit_features = []
             for file in audio_files:
                 audio, sr = librosa.load(f'{directory}/{file}', sr=None)
                 mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-                features_average += mfcc.mean(1)
+                digit_features.append(torch.tensor(mfcc.T))
             
-            features_average /= len(audio_files)
-            features[digit] = features_average
+            features.append(torch.stack((digit_features)))
         
         return torch.stack((features))
 
@@ -66,20 +63,28 @@ class DigitClassifier():
             for path in audio_files:
                 audio, sr = librosa.load(path, sr=None)
                 mfcc = librosa.feature.mfcc(y=audio, sr=sr)
-                audio_features.append(torch.tensor(mfcc.mean(1)))
+                audio_features.append(torch.tensor(mfcc.T))
+            
         except Exception as e:
             return audio_files
         
         return torch.stack((audio_features))
+    
+    def compute_euclidean_distance(self, train_features, test_features)-> torch.Tensor:
+        difference = train_features - test_features
+        squared_difference = difference ** 2
+        sum_of_squared_difference = squared_difference.sum()
+        return sum_of_squared_difference.sqrt()
 
-    def compute_dtw(self, audio_features, digit) -> torch.Tensor:
-        length = audio_features.size()[0]
-        digit_fetaures = self.features[digit]
-
-        distances = [[] * length] * length
+    def compute_dtw(self, train_features, test_features) -> torch.Tensor:
+        length = test_features.size()[0]
+        distances = []
         for i in range(length):
+            distances_per_frame = []
             for j in range(length):
-                distances[i].append((audio_features[i] - digit_fetaures[j]) ** 2)
+                distances_per_frame.append(((train_features[i] - test_features[j]) ** 2).sum().sqrt())
+            
+            distances.append(distances_per_frame)
         
         for i in range(1, length):
             distances[i][0] += distances[i - 1][0]
@@ -89,11 +94,11 @@ class DigitClassifier():
 
         for i in range(1, length):
             for j in range(1, length):
-                distances[i][j] += (min(distances[i - 1][j - 1],
-                                    min(distances[i - 1][j],
-                                        distances[i][j - 1])))
+                distances[i][j] += min(distances[i - 1][j - 1],
+                                       min(distances[i - 1][j],
+                                           distances[i][j - 1]))
         
-        return distances[length - 1][length - 1]
+        return distances[-1][-1]
 
     @abstractmethod
     def classify_using_eucledian_distance(self, audio_files: tp.Union[tp.List[str], torch.Tensor]) -> tp.List[int]:
@@ -102,15 +107,20 @@ class DigitClassifier():
         audio_files: list of audio file paths or a a batch of audio files of shape [Batch, Channels, Time]
         return: list of predicted label for each batch entry
         """
-        audio_features = self.extract_features(audio_files)
+        test_features = self.extract_features(audio_files)
         labels = []
-        for i in range(audio_features.size()[0]):
+        for test_sample in range(test_features.size()[0]):
             features_distances = []
-            for digit in range(len(self.digits)):
-                features_distances.append(torch.sqrt(torch.sum(torch.pow(
-                    self.features[digit] - audio_features[i], 2))))
+            for digit in range(self.features.size()[0]):
+                digit_distances = []
+                for train_sample in range(self.features.size()[1]):
+                    digit_distances.append(self.compute_euclidean_distance(
+                                                self.features[digit][train_sample],
+                                                test_features[test_sample]))
+                
+                features_distances.append(digit_distances)
             
-            labels.append(torch.argmin(torch.tensor(features_distances)) + 1)
+            labels.append(torch.argmin(torch.tensor(features_distances)) // self.features.size()[1] + 1)
         
         return labels
     
@@ -121,15 +131,20 @@ class DigitClassifier():
         audio_files: list of audio file paths or a a batch of audio files of shape [Batch, Channels, Time]
         return: list of predicted label for each batch entry
         """
-        audio_features = self.extract_features(audio_files)
+        test_features = self.extract_features(audio_files)
         labels = []
-        for i in range(audio_features.size()[0]):
+        for test_sample in range(test_features.size()[0]):
             features_distances = []
-            for digit in range(len(self.digits)):
-                features_distances.append(self.compute_dtw(audio_features[i], digit))
+            for digit in range(self.features.size()[0]):
+                digit_distances = []
+                for train_sample in range(self.features.size()[1]):
+                    digit_distances.append(self.compute_dtw(self.features[digit][train_sample],
+                                                            test_features[test_sample]))
+                
+                features_distances.append(digit_distances)
             
-            labels.append(torch.argmin(torch.tensor(features_distances)) + 1)
-
+            labels.append(torch.argmin(torch.tensor(features_distances)) // self.features.size()[1] + 1)
+        
         return labels
 
     @abstractmethod
