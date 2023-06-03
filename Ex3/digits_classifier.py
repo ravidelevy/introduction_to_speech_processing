@@ -50,7 +50,9 @@ class DigitClassifier():
             digit_features = []
             for file in audio_files:
                 audio, sr = librosa.load(f'{directory}/{file}', sr=None)
-                mfcc = librosa.feature.mfcc(y=audio, sr=sr)
+                mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
+                                            n_fft=512, hop_length=160, fmin=0,
+                                            fmax=None, htk=False)
                 digit_features.append(torch.tensor(mfcc.T))
             
             features.append(torch.stack((digit_features)))
@@ -62,7 +64,9 @@ class DigitClassifier():
         try:
             for path in audio_files:
                 audio, sr = librosa.load(path, sr=None)
-                mfcc = librosa.feature.mfcc(y=audio, sr=sr)
+                mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
+                                            n_fft=512, hop_length=160, fmin=0,
+                                            fmax=None, htk=False)
                 audio_features.append(torch.tensor(mfcc.T))
             
         except Exception as e:
@@ -82,8 +86,7 @@ class DigitClassifier():
         for i in range(length):
             distances_per_frame = []
             for j in range(length):
-                #distances_per_frame.append(((train_features[i] - test_features[j]) ** 2).sum().sqrt())
-                distances_per_frame.append((train_features[i] - test_features[j]).abs().sum())
+                distances_per_frame.append(((train_features[i] - test_features[j]) ** 2).sum().sqrt())
             
             distances.append(distances_per_frame)
         
