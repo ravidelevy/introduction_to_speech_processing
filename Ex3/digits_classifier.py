@@ -52,8 +52,7 @@ class DigitClassifier():
             for file in audio_files:
                 audio, sr = librosa.load(f'{directory}/{file}', sr=None)
                 mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
-                                            n_fft=512, hop_length=160, fmin=0,
-                                            fmax=None, htk=False)
+                                            fmin=0, fmax=None, htk=False)
                 delta_mfccs = librosa.feature.delta(mfccs)
                 delta2_mfccs = librosa.feature.delta(mfccs, order=2)
                 mfccs_features = np.concatenate((mfccs, delta_mfccs, delta2_mfccs))
@@ -69,8 +68,7 @@ class DigitClassifier():
             for path in audio_files:
                 audio, sr = librosa.load(path, sr=None)
                 mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
-                                            n_fft=512, hop_length=160, fmin=0,
-                                            fmax=None, htk=False)
+                                            fmin=0, fmax=None, htk=False)
                 delta_mfccs = librosa.feature.delta(mfccs)
                 delta2_mfccs = librosa.feature.delta(mfccs, order=2)
                 mfccs_features = np.concatenate((mfccs, delta_mfccs, delta2_mfccs))
