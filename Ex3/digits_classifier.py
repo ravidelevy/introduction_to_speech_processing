@@ -43,6 +43,14 @@ class DigitClassifier():
             with open(self.path_to_model_object, 'wb') as fp:
                 pickle.dump(self.features, fp)
     
+    def get_mfcc_features(self, audio, sr=22050) -> torch.Tensor:
+        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
+                                     fmin=0, fmax=None, htk=False)
+        delta_mfccs = librosa.feature.delta(mfccs)
+        delta2_mfccs = librosa.feature.delta(mfccs, order=2)
+        mfccs_features = np.concatenate((mfccs, delta_mfccs, delta2_mfccs))
+        return torch.tensor(mfccs_features.T)
+    
     def compute_model_features(self) -> torch.Tensor:
         features = []
         for digit in range(len(self.digits)):
@@ -51,12 +59,7 @@ class DigitClassifier():
             digit_features = []
             for file in audio_files:
                 audio, sr = librosa.load(f'{directory}/{file}', sr=None)
-                mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
-                                            fmin=0, fmax=None, htk=False)
-                delta_mfccs = librosa.feature.delta(mfccs)
-                delta2_mfccs = librosa.feature.delta(mfccs, order=2)
-                mfccs_features = np.concatenate((mfccs, delta_mfccs, delta2_mfccs))
-                digit_features.append(torch.tensor(mfccs_features.T))
+                digit_features.append(self.get_mfcc_features(audio, sr))
             
             features.append(torch.stack((digit_features)))
         
@@ -67,15 +70,13 @@ class DigitClassifier():
         try:
             for path in audio_files:
                 audio, sr = librosa.load(path, sr=None)
-                mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
-                                            fmin=0, fmax=None, htk=False)
-                delta_mfccs = librosa.feature.delta(mfccs)
-                delta2_mfccs = librosa.feature.delta(mfccs, order=2)
-                mfccs_features = np.concatenate((mfccs, delta_mfccs, delta2_mfccs))
-                audio_features.append(torch.tensor(mfccs_features.T))
+                audio_features.append(self.get_mfcc_features(audio, sr))
             
         except Exception as e:
-            return audio_files
+            for i in range(audio_files.size()[0]):
+                audio_features.append(self.get_mfcc_features(audio[i], sr))
+            
+            return torch.stack((audio_features))
         
         return torch.stack((audio_features))
     
