@@ -72,11 +72,9 @@ class DigitClassifier():
                 audio, sr = librosa.load(path, sr=None)
                 audio_features.append(self.get_mfcc_features(audio, sr))
             
-        except Exception as e:
+        except:
             for i in range(audio_files.size()[0]):
-                audio_features.append(self.get_mfcc_features(audio[i], sr))
-            
-            return torch.stack((audio_features))
+                audio_features.append(self.get_mfcc_features(audio_files[i].numpy()))
         
         return torch.stack((audio_features))
     
