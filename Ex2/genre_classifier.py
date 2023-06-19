@@ -80,9 +80,11 @@ class MusicClassifier:
         """
         features = []
         for wav in wavs:
-            mfcc = librosa.feature.mfcc(y=np.array(wav), sr=self.sample_rate, n_mfcc=40)
-            mean_matrix = mfcc.mean(1)
-            features.append(mean_matrix)
+            channels_features = np.zeros((40,))
+            for channel in wav:
+                mfcc = librosa.feature.mfcc(y=np.array(channel), sr=self.sample_rate, n_mfcc=40)
+                channels_features += mfcc.mean(1)
+            features.append(channels_features / len(wav))
 
         return torch.tensor(np.array(features))
 
@@ -165,7 +167,7 @@ class ClassifierHandler:
             loss = 0
             for i in range(0, len(train), training_parameters.batch_size):
                 batch = train[i:i + training_parameters.batch_size]
-                wavs = [sf.read(sample['path'])[0] for sample in batch]
+                wavs = [[sf.read(sample['path'])[0]] for sample in batch]
                 X_train = music_classifier.exctract_feats(torch.tensor(np.array(wavs)))
                 labels = [Genre[sample['label'].upper().replace('-', '_')] for sample in batch]
                 y_train = [label.value for label in labels]

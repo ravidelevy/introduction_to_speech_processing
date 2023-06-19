@@ -17,7 +17,7 @@ if __name__ == "__main__":
     with open(training_params.test_json_path) as test_json:
         test = json.load(test_json)
 
-    wavs = [sf.read(sample['path'])[0] for sample in test]
+    wavs = [[sf.read(sample['path'])[0]] for sample in test]
     labels = [Genre[sample['label'].upper().replace('-', '_')] for sample in test]
     y_pred = music_classifier.classify(torch.tensor(np.array(wavs)))
     y_test = torch.tensor([[label.value] for label in labels])
