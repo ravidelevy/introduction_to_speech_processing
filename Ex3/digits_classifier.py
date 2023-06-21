@@ -44,6 +44,7 @@ class DigitClassifier():
                 pickle.dump(self.features, fp)
     
     def get_mfcc_features(self, audio, sr=22050) -> torch.Tensor:
+        audio = librosa.to_mono(audio)
         audio = audio.reshape(1, -1) if audio.ndim == 1 else audio
         mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, n_mels=40,
                                      fmin=0, fmax=None, htk=False)
