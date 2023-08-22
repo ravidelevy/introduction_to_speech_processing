@@ -1,0 +1,4 @@
+*.pt filter=lfs diff=lfs merge=lfs -text
+FinalProject/models/copy_aug_sub_token_ctc_lstm_model.pt filter=lfs diff=lfs merge=lfs -text
+FinalProject/models/aug_sub_token_ctc_lstm_model.pt filter=lfs diff=lfs merge=lfs -text
+FinalProjects/models/aug_sub_token_ctc_lstm.pt filter=lfs diff=lfs merge=lfs -text
